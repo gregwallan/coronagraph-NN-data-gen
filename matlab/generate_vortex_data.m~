@@ -1,0 +1,35 @@
+close all;
+
+N = 256;
+z = 30e3; %um (30mm)
+f = 100e3; %um (100mm)
+
+file = '../zernike_basis.mat';
+
+data = load(file,'Z');
+Z = data.Z;
+M = size(Z,1)-1; %single index of highest zernike polynomial
+Z = Z(2:end,:,:); %remove pistom mode
+
+
+Nex = 1000;
+
+a = rand(M,Nex);
+
+data = zeros(N,N,)
+for i = 1:Nex
+    aRep = repmat(a(:,i),1,N,N);
+    phase = aRep.*Z;
+    phase = sum(phase,1);
+    
+    
+end
+
+ZRep = repmat(Z,1,1,Nex);
+aRep = rep(a,1,1,N,N);
+aRep = permute(aRep,[1,3,4,2]);
+
+phase = Zrep .* aRep;
+phase = squeeze(sum(phase,1));
+
+Data_generation_vortex(data.OrgMat1,z,f,N);
