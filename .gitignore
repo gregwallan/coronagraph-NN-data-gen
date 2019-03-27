@@ -2,3 +2,4 @@
 nn-gen-venv/*
 
 .ipynb_checkpoints/*
+*.~m
