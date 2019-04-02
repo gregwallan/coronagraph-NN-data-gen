@@ -1,0 +1,25 @@
+clear all
+load zernike_basis.mat
+tic
+N = 500;
+M = 15;
+L = 256;
+z = 10000;
+focal = 10000;
+test_rand_zernike_image = zeros(N,L,L);
+test_rand_zernike_coeff = zeros(N,M);
+test_vortex_zernike_image = zeros(N,L,L);
+
+parfor i = 1:N
+    tmp = -1+2*rand(1,M);
+%     tmp = zeros(1,15); tmp(8) = 1;
+    zernike = reshape(tmp*reshape(Z(1:M,:,:),[M L*L]),[L L]);
+    zernike(isnan(zernike)) = 0;
+    norm_zernike = zernike/max(max(abs(zernike)));
+    test_rand_zernike_image(i,:,:) = norm_zernike;
+    test_vortex_zernike_image(i,:,:) = vortex_propagation_trans(norm_zernike, ones(256), z, focal);
+    test_rand_zernike_coeff(i,:) = tmp;
+    
+    if 100*(i/100-floor(i/100)) == 0; disp(num2str(i)); end
+end
+toc
