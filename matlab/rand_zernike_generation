@@ -1,5 +1,5 @@
 clear all
-load zernike_basis.mat
+load zernike_basis.mat      % From zernike basis generation python code
 tic
 N = 10000;          % Number of image samples
 M = 15;             % Number of Zernike Coefficients
