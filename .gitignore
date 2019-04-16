@@ -1,5 +1,19 @@
 #Virtual environment
 nn-gen-venv/*
 
+#Temporaries
 .ipynb_checkpoints/*
-*.~m
+*.m~
+__pycache__
+
+#Data
+*.mat
+*.h5
+*.hdf5
+*.fig
+*.png
+*.jpg
+*.jpeg
+
+#System Files
+.DS_Store
