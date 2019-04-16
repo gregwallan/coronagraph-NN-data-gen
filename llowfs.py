@@ -23,7 +23,7 @@ def generate_wfe_array(wfe_bounds,n_samples):
         
     return wfe_array
 
-def simulate_multiple_llowfs(wfe_array,filename,oversample=4,wavelength=632e-9*u.m):
+def simulate_multiple_llowfs(wfe_array,filename,oversample=4,wavelength=632e-9*u.m,coronagraph='vortex'):
     M = wfe_array.shape[0] #number of zernike coeffs (not including piston)
     N = wfe_array.shape[1]; #number of examples to simulate
     D = 64*oversample #size of resulting psf images
@@ -42,7 +42,7 @@ def simulate_multiple_llowfs(wfe_array,filename,oversample=4,wavelength=632e-9*u
         wfe.extend(wfe_array[i,:].tolist())
         llowfs = make_coronagraph(wfe,wavelength=wavelength,oversample=oversample,pixelscale=pixelscale,\
                                 sensor_defocus=sensor_defocus,llowfs=True,\
-                                mask_type='vortex',vortex_charge=charge)
+                                mask_type=coronagraph,vortex_charge=charge)
         psf = llowfs.calc_psf(wavelength=wavelength, display_intermediates=False)
         images_dataset[:,:,i] = psf[0].data
     
@@ -60,7 +60,7 @@ class VortexMask(poppy.AnalyticOpticalElement):
     
     def get_opd(self,wave):
         if not isinstance(wave, poppy.poppy_core.Wavefront):
-            raise ValueError("4QPM get_opd must be called with a Wavefront to define the spacing")
+            raise ValueError("get_opd must be called with a Wavefront to define the spacing")
         assert (wave.planetype == poppy.poppy_core.PlaneType.image)
         
         y, x = self.get_coordinates(wave)
@@ -69,15 +69,25 @@ class VortexMask(poppy.AnalyticOpticalElement):
         return opd
 
 def make_coronagraph(wfe_coeffs,wavelength=1e-6,oversample=2,pixelscale=0.01,sensor_defocus=0.5,vortex_charge=1,llowfs=False,mask_type='fqpm'):
-    #sensor_defocus: defocus of detector in waves peak-to-valley
+    #sensor_defocus: defocus of llowfs detector in waves peak-to-valley
+    
+    #these values are picked rather arbitrarily, but seem to work
     pupil_radius = 3
     lyot_radius=2.8
+    
+    #create the optical system
     osys = poppy.OpticalSystem("LLOWFS", oversample=oversample)
     osys.add_pupil(poppy.CircularAperture(radius=pupil_radius,pad_factor=1.5))
+    
+    #inject wavefrotn error at the pupil
     error = poppy.ZernikeWFE(radius=pupil_radius, coefficients=wfe_coeffs)
     osys.add_pupil(error)
+    
+    #correct for fqpm (and vvc) alignment
     osys.add_pupil(poppy.FQPM_FFT_aligner())
-    osys.add_image()
+    osys.add_image() #helper for plotting intermediates
+    
+    #select mask type
     if mask_type is 'fqpm':
         cgph_mask = poppy.IdealFQPM(wavelength=wavelength,name='FQPM Mask')
     elif mask_type is 'vortex':
@@ -86,15 +96,20 @@ def make_coronagraph(wfe_coeffs,wavelength=1e-6,oversample=2,pixelscale=0.01,sen
         raise ValueError("mask_type must be 'fqpm' or 'vortex'")
     cgph_mask._wavefront_display_hint='phase'
     osys.add_image(cgph_mask)
+    
+    #correct alignment back the other way
     osys.add_pupil(poppy.FQPM_FFT_aligner(direction='backward'))
     osys.add_pupil()
+    
+    #add lyot stop
     lyot = poppy.CircularAperture(radius=lyot_radius,name='Lyot Stop')
     lyot._wavefront_display_hint='intensity' 
     if llowfs:
-        #
+        #take the rejected light for the LLOWFS
         lyot = poppy.InverseTransmission(lyot)
         osys.add_pupil(lyot)
-    
+        
+        #Add a defocus term to the sensor
         #Calc of peak-to-valley WFE: https://poppy-optics.readthedocs.io/en/stable/wfe.html
         defocus_coeff = 1/2/np.sqrt(3)*sensor_defocus*wavelength.to(u.m).value
         defocus = poppy.ZernikeWFE(radius=pupil_radius,coefficients=[0,0,0,defocus_coeff])
@@ -103,4 +118,5 @@ def make_coronagraph(wfe_coeffs,wavelength=1e-6,oversample=2,pixelscale=0.01,sen
     else:
         osys.add_pupil(lyot)
         osys.add_detector(pixelscale=pixelscale, fov_arcsec=1)
+        
     return osys
