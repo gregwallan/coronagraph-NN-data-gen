@@ -1,4 +1,4 @@
-function [CamMat1,OrgMat1]=Data_generation_vortex(OrgMat,a,z,f,N)  % OrgMat: 4D matrix 256*256*1*N_images   %N=256  % z: um
+function [CamMat1,OrgMat1]=Data_generation_vortex(OrgMat,a,z,D,f,N,lambda,use_lyot)  % OrgMat: 4D matrix 256*256*1*N_images   %N=256  % z: um
 
 [~,~,~,Nl]=size(OrgMat);
 CamMat1=zeros(N,N,1,Nl);
@@ -9,7 +9,7 @@ for j=1:Nl
     j
     Im=double(squeeze(OrgMat(:,:,:,j)));
     f_in=Im;
-    f_out=vortex_propagation_trans(f_in,a,z,f);
+    f_out=vortex_propagation_trans(f_in,a,z,D,f,lambda,use_lyot);
     %f_in=abs(ppval(pp,Im1));
     CamMat1(:,:,1,j)=rot90((f_out/normalization),2);
     OrgMat1(:,:,1,j)=f_in;

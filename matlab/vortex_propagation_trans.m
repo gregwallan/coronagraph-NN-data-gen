@@ -1,14 +1,16 @@
- function [I_out]=vortex_propagation_trans(f_in,a_in,z,focal) %f_in is the input phase
+ function [I_out]=vortex_propagation_trans(f_in,a_in,z,D,focal,lambda,use_lyot) %f_in is the input phase
 
 %the unit for z is um
+%the unit for lambda is um
+
 
 %parameters
 [N1,N2]=size(f_in);   % SBP of the input object
-dx=12*256/N1;%um    pixel size at the object plane
-lambda=0.633; %um   wavelength
+dx=D/N1;%um    pixel size at the object plane
 
 
 N_min=ceil(lambda*focal/dx/dx); % required minimum SBP to avoid aliasing
+
 
 if N_min>max(N1,N2)  % zero-padding is required in 2D, ones-padding for phase object?
     g_in=zeros(N_min,N_min);
@@ -58,6 +60,14 @@ v=(floor(-(M2-1)/2):floor((M2-1)/2))*dv;
 XP = U*lambda*focal;
 YP = V*lambda*focal;
 
+if use_lyot
+    inv_lyot_stop = ones(M1,M2);
+    R = 25e3; %um
+    rho = sqrt(XP.^2+YP.^2);
+    iCirc = rho<R;
+    inv_lyot_stop(iCirc) = 0;
+end
+
 % 
 
 %Fraunhofer propagation
@@ -67,6 +77,10 @@ vtx = exp(1i*pi*phase_vortex_2d(M1,2));
 g_2 = Fg_in .* vtx;
 %g_2 = Fg_in; %at pupil (mask) plane
 g_3 = fftshift(fft2(ifftshift(g_2)));
+if use_lyot
+    g_3 = g_3 .* inv_lyot_stop;
+end
+%g_3 = fftshift(fft2(ifftshift(g_3)));
 g_out = free_space_propagation_trans_mod(g_3,z,du*lambda*focal);
 
                                  % Multiply by the Fourier Domain representation of the Fresnel Kernel
