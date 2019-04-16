@@ -1,2 +1,5 @@
 poppy==0.8.0
 ipykernel
+matplotlib
+numpy
+h5py
