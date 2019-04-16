@@ -4,11 +4,11 @@ import numpy as np
 import h5py
 
 def generate_coefficients(wfe_budget):
+    #takes rms wfe coeffs in units of meters
     coefficients = []
     for term in wfe_budget:
         coefficients.append(
-            # convert nm to meters, get value in range
-            np.random.uniform(low=-1e-9 * term, high=1e-9 * term)
+            np.random.uniform(low=-1*term, high=term)
         )
     return coefficients
 
@@ -35,11 +35,11 @@ def simulate_multiple_llowfs(wfe_array,filename,oversample=4,wavelength=632e-9*u
     
     hf = h5py.File(filename, "w") #create an hdf5 file to store everything
     hf.create_dataset("zernike_coeffs", data=wfe_array) 
-    images_dataset = hf.create_dataset("images",(D,D,M),'f') #create an empty dataset to store images
+    images_dataset = hf.create_dataset("images",(D,D,N),'f') #create an empty dataset to store images
     
     for i in range(N):
         wfe = [0]
-        wfe.extend(wfe_array[i,:].tolist())
+        wfe.extend(wfe_array[:,i].tolist())
         llowfs = make_coronagraph(wfe,wavelength=wavelength,oversample=oversample,pixelscale=pixelscale,\
                                 sensor_defocus=sensor_defocus,llowfs=True,\
                                 mask_type=coronagraph,vortex_charge=charge)
