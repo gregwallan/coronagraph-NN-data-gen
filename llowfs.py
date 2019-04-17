@@ -68,7 +68,7 @@ class VortexMask(poppy.AnalyticOpticalElement):
         opd = self.charge*angle/(2*np.pi)*self.central_wavelength.to(u.meter).value
         return opd
 
-def make_coronagraph(wfe_coeffs,wavelength=1e-6,oversample=2,pixelscale=0.01,sensor_defocus=0.5,vortex_charge=1,llowfs=False,mask_type='fqpm'):
+def make_coronagraph(wfe_coeffs,wavelength=1e-6,oversample=2,pixelscale=0.01,sensor_defocus=0.5,vortex_charge=2,llowfs=False,mask_type='fqpm'):
     #sensor_defocus: defocus of llowfs detector in waves peak-to-valley
     
     #these values are picked rather arbitrarily, but seem to work
