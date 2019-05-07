@@ -68,7 +68,7 @@ class VortexMask(poppy.AnalyticOpticalElement):
         opd = self.charge*angle/(2*np.pi)*self.central_wavelength.to(u.meter).value
         return opd
 
-def make_coronagraph(wfe_coeffs,wavelength=1e-6,oversample=2,pixelscale=0.01,sensor_defocus=0.5,vortex_charge=2,llowfs=False,mask_type='fqpm'):
+def make_coronagraph(wfe_coeffs,npix_pupil=512,npix_detector=128,wavelength=1e-6,oversample=4,pixelscale=0.01,sensor_defocus=0.5,vortex_charge=2,llowfs=False,mask_type='fqpm'):
     #sensor_defocus: defocus of llowfs detector in waves peak-to-valley
     
     #these values are picked rather arbitrarily, but seem to work
@@ -76,7 +76,7 @@ def make_coronagraph(wfe_coeffs,wavelength=1e-6,oversample=2,pixelscale=0.01,sen
     lyot_radius=2.8
     
     #create the optical system
-    osys = poppy.OpticalSystem("LLOWFS", oversample=oversample)
+    osys = poppy.OpticalSystem("LLOWFS", oversample=oversample, npix=npix_pupil)
     osys.add_pupil(poppy.CircularAperture(radius=pupil_radius,pad_factor=1.5))
     
     #inject wavefrotn error at the pupil
@@ -114,7 +114,7 @@ def make_coronagraph(wfe_coeffs,wavelength=1e-6,oversample=2,pixelscale=0.01,sen
         defocus_coeff = 1/2/np.sqrt(3)*sensor_defocus*wavelength.to(u.m).value
         defocus = poppy.ZernikeWFE(radius=pupil_radius,coefficients=[0,0,0,defocus_coeff])
         osys.add_pupil(defocus)
-        osys.add_detector(pixelscale=pixelscale, fov_pixels=64)
+        osys.add_detector(pixelscale=pixelscale, fov_pixels=npix_detector)
     else:
         osys.add_pupil(lyot)
         osys.add_detector(pixelscale=pixelscale, fov_arcsec=1)
