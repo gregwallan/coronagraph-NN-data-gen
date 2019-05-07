@@ -23,15 +23,12 @@ def generate_wfe_array(wfe_bounds,n_samples):
         
     return wfe_array
 
-def simulate_multiple_llowfs(wfe_array,filename,oversample=4,wavelength=632e-9*u.m,coronagraph='vortex'):
+def simulate_multiple_llowfs(wfe_array,filename,oversample=4,wavelength=632e-9*u.m,coronagraph='vortex',npix_pupil=512,npix_detector=128,vortex_charge=2,pixelscale=0.005):
     M = wfe_array.shape[0] #number of zernike coeffs (not including piston)
     N = wfe_array.shape[1]; #number of examples to simulate
-    D = 64*oversample #size of resulting psf images
+    D = npix_detector #size of resulting psf images
     
-    pixelscale = 0.005  #arcsec/pixel
-    wavelength = 632e-9*u.m
-    sensor_defocus = 3 #(times wavelength)
-    charge=3
+    sensor_defocus = 0.5 #(times wavelength)
     
     hf = h5py.File(filename, "w") #create an hdf5 file to store everything
     hf.create_dataset("zernike_coeffs", data=wfe_array) 
@@ -41,8 +38,9 @@ def simulate_multiple_llowfs(wfe_array,filename,oversample=4,wavelength=632e-9*u
         wfe = [0]
         wfe.extend(wfe_array[:,i].tolist())
         llowfs = make_coronagraph(wfe,wavelength=wavelength,oversample=oversample,pixelscale=pixelscale,\
-                                sensor_defocus=sensor_defocus,llowfs=True,\
-                                mask_type=coronagraph,vortex_charge=charge)
+                                sensor_defocus=sensor_defocus,llowfs=True,npix_pupil=npix_pupil,\
+                                npix_detector=npix_detector, mask_type=coronagraph,\
+                                vortex_charge=vortex_charge)
         psf = llowfs.calc_psf(wavelength=wavelength, display_intermediates=False)
         images_dataset[:,:,i] = psf[0].data
     
@@ -114,7 +112,7 @@ def make_coronagraph(wfe_coeffs,npix_pupil=512,npix_detector=128,wavelength=1e-6
         defocus_coeff = 1/2/np.sqrt(3)*sensor_defocus*wavelength.to(u.m).value
         defocus = poppy.ZernikeWFE(radius=pupil_radius,coefficients=[0,0,0,defocus_coeff])
         osys.add_pupil(defocus)
-        osys.add_detector(pixelscale=pixelscale, fov_pixels=npix_detector)
+        osys.add_detector(pixelscale=pixelscale, fov_pixels=npix_detector, oversample=1)
     else:
         osys.add_pupil(lyot)
         osys.add_detector(pixelscale=pixelscale, fov_arcsec=1)
