@@ -12,6 +12,7 @@ bounds = [50e-9]*(highest_coeff-1) #piston not included
 Nex = 10000 #number of examples
 
 file_out = 'vortex_50nm_256px.hdf5'
+#file_out='test.hdf5'
 
 #size of output images is npix_detector
 # oversample pads the pupil plane before performing ffts. This gives more accurate simulations of 
@@ -60,6 +61,8 @@ if __name__ == '__main__':
 
     pool = multiprocessing.Pool(processes=processes)
     psf_list = pool.map(coronagraph_wrapper,wfe_iterable)
+    pool.close()
+    pool.join()
 
     hf = h5py.File(file_out, "w") #create an hdf5 file to store everything
     hf.create_dataset("zernike_coeffs", data=wfe_array) 
