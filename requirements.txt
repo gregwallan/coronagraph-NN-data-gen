@@ -3,3 +3,4 @@ ipykernel
 matplotlib
 numpy
 h5py
+numexpr
