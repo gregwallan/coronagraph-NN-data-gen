@@ -3,15 +3,19 @@ import poppy
 import matplotlib.pyplot as plt
 import astropy.units as u
 from llowfs import generate_wfe_array, make_coronagraph
-import h5py
+import h5py_cache
 import multiprocessing
+import time
+
+
+start_time = time.time()
 
 highest_coeff = 15
 bounds = [50e-9]*(highest_coeff-1) #piston not included
 
-Nex = 10000 #number of examples
+Nex = 2000 #number of examples
 
-file_out = 'vortex_50nm_256px.hdf5'
+file_out = 'vortex_50nm_512px_part5.hdf5'
 #file_out='test.hdf5'
 
 #size of output images is npix_detector
@@ -25,7 +29,7 @@ wavelength=632e-9*u.m
 coronagraph='vortex'
 npix_pupil = 512
 
-npix_detector = 256
+npix_detector = 512
 detector_fov = 0.3 #arcsec
 detector_pixelscale = detector_fov/npix_detector
 
@@ -64,11 +68,15 @@ if __name__ == '__main__':
     pool.close()
     pool.join()
 
-    hf = h5py.File(file_out, "w") #create an hdf5 file to store everything
+    hf = h5py_cache.File(file_out, "w", chunk_cache_mem_size=500*1024**2) #create an hdf5 file to store everything
     hf.create_dataset("zernike_coeffs", data=wfe_array) 
+
+    print("Finished processing: ", time.time() - start_time)
 
     images_dataset = hf.create_dataset("images",(D,D,N),'f') #create an empty dataset to store images
     for i in range(N):
         images_dataset[:,:,i] = psf_list[i][0].data
     hf.close()
+    
+    print("Finished storing: ", time.time() - start_time)
     
