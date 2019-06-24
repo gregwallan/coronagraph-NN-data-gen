@@ -7,41 +7,52 @@ import h5py
 import multiprocessing
 import time
 
+# -- General Parameters -- #
 
-start_time = time.time()
+Nex = 10 #number of examples
 
+file_out = 'test.hdf5'
+
+processes=8 #number of workers to spawn
+
+# -- Parameters for the zernike generation -- #
 highest_coeff = 15
-bounds = [150e-9]*(highest_coeff-1) #piston not included
+bounds = [150e-9]*(highest_coeff-1) #a list of M bounds for zernike coeffs starting with piston. Bound on each coefficient can be different if desired.
+zernike_distribution = 'sparse' #can be 'uniform' or 'sparse'
 
-Nex = 10000 #number of examples
+# -- Parameters on optical system -- #
+oversample = 4 
+# oversample pads the pupil plane before performing ffts. This gives more accurate simulations of image plane interactions. oversample=2 is generally too low for this application. oversample=4 works well and doesn't take too long (see notebook'Oversample Comparison')
 
-file_out = 'fqpm_150nm_256px_14_zernikes.hdf5'
-#file_out='test.hdf5'
-
-#size of output images is npix_detector
-# oversample pads the pupil plane before performing ffts. This gives more accurate simulations of 
-# image plane interactions. oversample=2 is generally too low for this application. 
-# oversample=4 works well and doesn't take too long (see notebook'Oversample Comparison')
-# 'coronagraph' can be 'vortex' or 'fqpm'. See 'Test Responses' notebook for more info.
-
-oversample = 4
 wavelength=632e-9*u.m
-coronagraph='fqpm'
-npix_pupil = 512
+coronagraph='vortex' # can be 'vortex' or 'fqpm'. See 'Test Responses' notebook for more info.
+npix_pupil = 512 
 
-npix_detector = 256
+npix_detector = 256 #size of output images
 detector_fov = 0.3 #arcsec
 detector_pixelscale = detector_fov/npix_detector
 
 vortex_charge = 2
 sensor_defocus = 4 #(times wavelength)
-obscuration = True
-
-processes=8
+obscuration = False
 
 
 #------Do not edit below------#
 
+def generate_wfe_array_sparse(bounds,Nex):
+    #For each example, choose a single one of the zernikes, choose its value from a uniform distribution, and set the others to zero.
+    #Arguments:
+    # - bounds: a list of positive floats b_0...b_M. If zernike m is chosen, its value will be between b_m and -1*b_m.
+    M = highest_coeff-1 #number of zernike coeffs (not including piston)
+    N = Nex; #number of examples to simulate    
+    wfe_array = np.zeros((M,N))
+    choices = np.random.randint(M,size=(N,))
+    for i in range(N):
+        choice = choices[i]
+        bound = bounds[choice]
+        wfe_array[choice,i] = np.random.uniform(low=-1*bound,high=bound)
+    return wfe_array
+    
 def coronagraph_wrapper(wfe_in):
     llowfs = make_coronagraph(wfe_in,wavelength=wavelength,oversample=oversample,pixelscale=detector_pixelscale,\
                             sensor_defocus=sensor_defocus,llowfs=True,npix_pupil=npix_pupil,\
@@ -51,7 +62,13 @@ def coronagraph_wrapper(wfe_in):
     return psf
 
 if __name__ == '__main__':
-    wfe_array = generate_wfe_array(bounds,Nex)
+    start_time = time.time()
+    
+    if zernike_distribution == 'sparse':
+        wfe_array = generate_wfe_array_sparse(bounds,Nex)
+    elif zernike_distribution == 'uniform':
+        wfe_array = generate_wfe_array(bounds,Nex)
+        
     print(wfe_array.shape)
     print(wfe_array[:,:3])
 
@@ -89,7 +106,11 @@ if __name__ == '__main__':
                 'detector_fov': detector_fov,
                 'pixelscale': detector_pixelscale,
                 'sensor_defocus': sensor_defocus,
-                'obscuration': obscuration
+                'obscuration': obscuration,
+                'distribution': zernike_distribution,
+                'bounds': bounds,
+                'examples': N,
+                'zernikes': M
             }
     hf.attrs.update(metadata)
     hf.close()
