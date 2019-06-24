@@ -11,11 +11,12 @@ import time
 start_time = time.time()
 
 highest_coeff = 15
-bounds = [150e-9]*(highest_coeff-1) #piston not included
+zernike_bound = 150e-9
 
 Nex = 10000 #number of examples
 
-file_out = 'fqpm_150nm_256px_14_zernikes.hdf5'
+file_out = '/Users/gregoryallan/Dropbox (MIT)/Deep Learning + Coronagraph/data/fqpm_150nm_256px_14_individual_zernikes_obsc_training.hdf5'
+#fqpm_150nm_256px_14_individual_zernikes_obsc_training
 #file_out='test.hdf5'
 
 #size of output images is npix_detector
@@ -35,7 +36,7 @@ detector_pixelscale = detector_fov/npix_detector
 
 vortex_charge = 2
 sensor_defocus = 4 #(times wavelength)
-obscuration = True
+obscuration = False
 
 processes=8
 
@@ -51,13 +52,23 @@ def coronagraph_wrapper(wfe_in):
     return psf
 
 if __name__ == '__main__':
-    wfe_array = generate_wfe_array(bounds,Nex)
-    print(wfe_array.shape)
-    print(wfe_array[:,:3])
-
     M = highest_coeff-1 #number of zernike coeffs (not including piston)
     N = Nex; #number of examples to simulate
     D = npix_detector #size of resulting psf images
+    
+    wfe_array = np.zeros((M,N))
+    choices = np.random.randint(M,size=(N,))
+    displacements = np.random.uniform(low=-1*zernike_bound,high=zernike_bound,size=(N,))
+
+    #print(wfe_array[choices,:])# = displacements
+    for i in range(N):
+        choice = choices[i]
+        wfe_array[choice,i] = displacements[i]
+        
+    print(wfe_array.shape)
+    print(wfe_array[:,:3])
+
+
     
     wfe_iterable = []
     for i in range(N):
@@ -78,6 +89,7 @@ if __name__ == '__main__':
     images_dataset = hf.create_dataset("images",(D,D,N),'f',chunks=(D,D,1)) #create an empty dataset to store images
     for i in range(N):
         images_dataset[:,:,i] = psf_list[i][0].data
+        
     metadata = {'Date': time.asctime(),
                 'Author': 'Greg Allan',
                 'oversample': oversample,
@@ -86,7 +98,6 @@ if __name__ == '__main__':
                 'npix_pupil': npix_pupil,
                 'npix_detector': npix_detector,
                 'vortex_charge': vortex_charge,
-                'detector_fov': detector_fov,
                 'pixelscale': detector_pixelscale,
                 'sensor_defocus': sensor_defocus,
                 'obscuration': obscuration
