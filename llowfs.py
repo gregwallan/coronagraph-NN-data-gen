@@ -2,6 +2,7 @@ import poppy
 import astropy.units as u
 import numpy as np
 import h5py
+import time
 
 def generate_coefficients(wfe_budget):
     #takes rms wfe coeffs in units of meters
@@ -23,7 +24,7 @@ def generate_wfe_array(wfe_bounds,n_samples):
         
     return wfe_array
 
-def simulate_multiple_llowfs(wfe_array,filename,oversample=4,wavelength=632e-9*u.m,coronagraph='vortex',npix_pupil=512,npix_detector=128,vortex_charge=2,pixelscale=0.005,sensor_defocus=0.5):
+def simulate_multiple_llowfs(wfe_array,filename,oversample=4,wavelength=632e-9*u.m,coronagraph='vortex',npix_pupil=512,npix_detector=128,vortex_charge=2,pixelscale=0.005,sensor_defocus=0.5,obscuration=False):
     #input wfe_array should start at tip, not piston
     #sensor_defocus specified in wavelengths
     
@@ -31,14 +32,12 @@ def simulate_multiple_llowfs(wfe_array,filename,oversample=4,wavelength=632e-9*u
     N = wfe_array.shape[1]; #number of examples to simulate
     D = npix_detector #size of resulting psf images
     
-    
-    
     if filename is None:
         images_dataset = np.zeros((D,D,N))
     else: 
         hf = h5py.File(filename, "w") #create an hdf5 file to store everything
         hf.create_dataset("zernike_coeffs", data=wfe_array) 
-        images_dataset = hf.create_dataset("images",(D,D,N),'f') #create an empty dataset to store images
+        images_dataset = hf.create_dataset("images",(D,D,N),'f',chunks=(D,D,1)) #create an empty dataset to store images
         
     for i in range(N):
         wfe = [0]
@@ -46,13 +45,26 @@ def simulate_multiple_llowfs(wfe_array,filename,oversample=4,wavelength=632e-9*u
         llowfs = make_coronagraph(wfe,wavelength=wavelength,oversample=oversample,pixelscale=pixelscale,\
                                 sensor_defocus=sensor_defocus,llowfs=True,npix_pupil=npix_pupil,\
                                 npix_detector=npix_detector, mask_type=coronagraph,\
-                                vortex_charge=vortex_charge)
+                                vortex_charge=vortex_charge, obscuration=obscuration)
         psf = llowfs.calc_psf(wavelength=wavelength, display_intermediates=False)
         images_dataset[:,:,i] = psf[0].data
     
     if filename is None:
         return images_dataset
     else:
+        metadata = {'Date': time.asctime(),
+                    'Author': 'Greg Allan',
+                    'oversample': oversample,
+                    'wavelength': wavelength,
+                    'coronagraph': coronagraph,
+                    'npix_pupil': npix_pupil,
+                    'npix_detector': npix_detector,
+                    'vortex_charge': vortex_charge,
+                    'pixelscale': pixelscale,
+                    'sensor_defocus': sensor_defocus,
+                    'obscuration': obscuration
+                }
+        hf.attrs.update(metadata)
         hf.close()
         
     
