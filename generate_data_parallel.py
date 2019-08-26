@@ -18,17 +18,17 @@ processes=8 #number of workers to spawn
 # -- Parameters for the zernike generation -- #
 highest_coeff = 15
 bounds = [150e-9]*(highest_coeff-1) #a list of M bounds for zernike coeffs starting with piston. Bound on each coefficient can be different if desired.
-zernike_distribution = 'sparse' #can be 'uniform' or 'sparse'
-
+zernike_distribution = 'uniform-overall' #can be 'uniform', 'sparse', or 'uniform-overall'
+overall_max_wfe = 300e-9;
 # -- Parameters on optical system -- #
 oversample = 4 
 # oversample pads the pupil plane before performing ffts. This gives more accurate simulations of image plane interactions. oversample=2 is generally too low for this application. oversample=4 works well and doesn't take too long (see notebook'Oversample Comparison')
 
 wavelength=632e-9*u.m
-coronagraph='vortex' # can be 'vortex' or 'fqpm'. See 'Test Responses' notebook for more info.
+coronagraph='fqpm' # can be 'vortex' or 'fqpm'. See 'Test Responses' notebook for more info.
 npix_pupil = 512 
 
-npix_detector = 256 #size of output images
+npix_detector = 128 #size of output images
 detector_fov = 0.3 #arcsec
 detector_pixelscale = detector_fov/npix_detector
 
@@ -36,6 +36,13 @@ vortex_charge = 2
 sensor_defocus = 4 #(times wavelength)
 obscuration = False
 
+#so the metadata is less confusing, but hdf5 doesn't support 'None'
+if coronagraph == 'fqpm':
+    vortex_charge = 0 
+if zernike_distribution == 'uniform-overall':
+    bounds = 0
+else:
+    overall_max_wfe = 0
 
 #------Do not edit below------#
 
@@ -52,7 +59,15 @@ def generate_wfe_array_sparse(bounds,Nex):
         bound = bounds[choice]
         wfe_array[choice,i] = np.random.uniform(low=-1*bound,high=bound)
     return wfe_array
-    
+
+def generate_wfe_array_uniform_overall(overall_bound,Nex):
+    bounds = [100e-9]*(highest_coeff-1) #doesn't matter as long as it's uniform
+    wfe_array = generate_wfe_array(bounds,Nex)
+    rms_wfe_calc = np.sqrt(np.sum(np.power(wfe_array,2),(0)))
+    desired_wfe = np.random.uniform(high=overall_bound,size=(Nex))
+    wfe_array = np.multiply(np.divide(wfe_array,rms_wfe_calc),desired_wfe)
+    return wfe_array
+
 def coronagraph_wrapper(wfe_in):
     llowfs = make_coronagraph(wfe_in,wavelength=wavelength,oversample=oversample,pixelscale=detector_pixelscale,\
                             sensor_defocus=sensor_defocus,llowfs=True,npix_pupil=npix_pupil,\
@@ -68,7 +83,9 @@ if __name__ == '__main__':
         wfe_array = generate_wfe_array_sparse(bounds,Nex)
     elif zernike_distribution == 'uniform':
         wfe_array = generate_wfe_array(bounds,Nex)
-        
+    elif zernike_distribution == 'uniform-overall':
+        wfe_array = generate_wfe_array_uniform_overall(overall_max_wfe,Nex)
+    
     print(wfe_array.shape)
     print(wfe_array[:,:3])
 
