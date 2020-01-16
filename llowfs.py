@@ -87,7 +87,7 @@ class VortexMask(poppy.AnalyticOpticalElement):
         opd = self.charge*angle/(2*np.pi)*self.central_wavelength.to(u.meter).value
         return opd
 
-def make_coronagraph(wfe_coeffs,npix_pupil=512,npix_detector=128,wavelength=1e-6,oversample=4,pixelscale=0.01,sensor_defocus=0.5,vortex_charge=2,llowfs=False,mask_type='fqpm',obscuration=False):
+def make_coronagraph(wfe_coeffs,npix_pupil=512,npix_detector=128,wavelength=1e-6*u.m,oversample=4,pixelscale=0.01,sensor_defocus=0.5,vortex_charge=2,llowfs=False,mask_type='fqpm',obscuration=False):
     #sensor_defocus: defocus of llowfs detector in waves peak-to-valley
     
     #these values are picked rather arbitrarily, but seem to work
@@ -132,9 +132,9 @@ def make_coronagraph(wfe_coeffs,npix_pupil=512,npix_detector=128,wavelength=1e-6
         #take the rejected light for the LLOWFS
         lyot = poppy.InverseTransmission(lyot)
         osys.add_pupil(lyot)
-        if obscuration:
-            obsc = poppy.InverseTransmission(obsc)
-            osys.add_pupil(obsc)
+        #if obscuration:
+        #    obsc = poppy.InverseTransmission(obsc)
+        #    osys.add_pupil(obsc)
 
         
         #Add a defocus term to the sensor
