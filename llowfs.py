@@ -91,18 +91,26 @@ def make_coronagraph(wfe_coeffs,npix_pupil=512,npix_detector=128,wavelength=1e-6
     #sensor_defocus: defocus of llowfs detector in waves peak-to-valley
     
     #these values are picked rather arbitrarily, but seem to work
-    pupil_radius = 3
-    lyot_radius=2.8
+    aperture_radius = 3*u.m
+    lyot_radius=2.8*u.m
+    pupil_radius = 3*aperture_radius
+
     
     #create the optical system
-    osys = poppy.OpticalSystem("LLOWFS", oversample=oversample, npix=npix_pupil)
-    osys.add_pupil(poppy.CircularAperture(radius=pupil_radius,pad_factor=1.5))
+    osys = poppy.OpticalSystem("LLOWFS", oversample=oversample, npix=npix_pupil, pupil_diameter=2*pupil_radius)
+    
+    ap = poppy.CircularAperture(radius=aperture_radius)
     if obscuration:
-        osys.add_pupil(poppy.AsymmetricSecondaryObscuration(secondary_radius=0.5,support_width=0.2*u.meter,support_angle=(0,120,240)))
+        obsc = poppy.SecondaryObscuration(secondary_radius=0.5*u.m, n_supports=0)
+        osys.add_pupil(poppy.CompoundAnalyticOptic(opticslist=[ap,obsc])) #osys.add_pupil(poppy.AsymmetricSecondaryObscuration(secondary_radius=0.5,support_width=0.2*u.meter,support_angle=(0,120,240)))
+    else:
+        osys.add_pupil(ap)
+        
+    error = poppy.ZernikeWFE(radius=aperture_radius, coefficients=wfe_coeffs)
+    osys.add_pupil(error)
     
     #inject wavefrotn error at the pupil
-    error = poppy.ZernikeWFE(radius=pupil_radius, coefficients=wfe_coeffs)
-    osys.add_pupil(error)
+    
     
     #correct for fqpm (and vvc) alignment
     osys.add_pupil(poppy.FQPM_FFT_aligner())
@@ -120,17 +128,20 @@ def make_coronagraph(wfe_coeffs,npix_pupil=512,npix_detector=128,wavelength=1e-6
     
     #correct alignment back the other way
     osys.add_pupil(poppy.FQPM_FFT_aligner(direction='backward'))
-    osys.add_pupil()
+    #osys.add_pupil()
     
-    #add lyot stop
     lyot = poppy.CircularAperture(radius=lyot_radius,name='Lyot Stop')
     lyot._wavefront_display_hint='intensity'
     if obscuration:
-        obsc = poppy.AsymmetricSecondaryObscuration(secondary_radius=0.7,support_width=0.30*u.meter,support_angle=(0,120,240))
-        obsc._wavefront_display_hint='intensity'
+        lyot_obsc = poppy.InverseTransmission(poppy.SquareAperture(size=1.4*u.m))
+        lyot = poppy.CompoundAnalyticOptic(opticslist=[lyot,lyot_obsc])
+
     if llowfs:
         #take the rejected light for the LLOWFS
-        lyot = poppy.InverseTransmission(lyot)
+        lyot_reflection = poppy.InverseTransmission(lyot)
+        lyot_extent = poppy.CircularAperture(radius=pupil_radius)
+        lyot = poppy.CompoundAnalyticOptic(opticslist = [lyot_reflection,lyot_extent])
+        lyot._wavefront_display_hint='intensity'
         osys.add_pupil(lyot)
         #if obscuration:
         #    obsc = poppy.InverseTransmission(obsc)
@@ -139,14 +150,16 @@ def make_coronagraph(wfe_coeffs,npix_pupil=512,npix_detector=128,wavelength=1e-6
         
         #Add a defocus term to the sensor
         #Calc of peak-to-valley WFE: https://poppy-optics.readthedocs.io/en/stable/wfe.html
-        defocus_coeff = 1/2/np.sqrt(3)*sensor_defocus*wavelength.to(u.m).value
-        defocus = poppy.ZernikeWFE(radius=pupil_radius,coefficients=[0,0,0,defocus_coeff])
-        osys.add_pupil(defocus)
+        defocus_coeff = sensor_defocus*wavelength.to(u.m).value
+        sensor_defocus_wfe = poppy.ZernikeWFE(radius=pupil_radius,coefficients=[0,0,0,defocus_coeff])
+        osys.add_pupil(sensor_defocus_wfe)
+        
+
+        #osys.add_pupil()
         osys.add_detector(pixelscale=pixelscale, fov_pixels=npix_detector, oversample=1)
     else:
+        #add lyot stop
         osys.add_pupil(lyot)
-        if obscuration:
-            osys.add_pupil(obsc)
         osys.add_detector(pixelscale=pixelscale, fov_arcsec=1)
         
     return osys
