@@ -6,26 +6,30 @@ from llowfs import generate_wfe_array, make_coronagraph
 import h5py
 import multiprocessing
 import time
+import sys
 
 # -- General Parameters -- #
 
-Nex = 10 #number of examples
+Nex = 800 #number of examples
 
-file_out = 'test.hdf5'
+file_out = 'vortex_15_individual_800st_948nm_128px'
+if len(sys.argv) > 1:
+	file_out +=  str(sys.argv[1])
+file_out += '.hdf5'
 
 processes=8 #number of workers to spawn
 
 # -- Parameters for the zernike generation -- #
 highest_coeff = 15
-bounds = [150e-9]*(highest_coeff-1) #a list of M bounds for zernike coeffs starting with piston. Bound on each coefficient can be different if desired.
-zernike_distribution = 'uniform-overall' #can be 'uniform', 'sparse', or 'uniform-overall'
-overall_max_wfe = 300e-9;
+bounds = [632e-9*1.5]*(highest_coeff-1) #a list of M bounds for zernike coeffs starting with piston. Bound on each coefficient can be different if desired.
+zernike_distribution = 'individual' #can be 'uniform', 'sparse', or 'uniform-overall'
+overall_max_wfe = 632e-9*1.5;
 # -- Parameters on optical system -- #
 oversample = 4 
 # oversample pads the pupil plane before performing ffts. This gives more accurate simulations of image plane interactions. oversample=2 is generally too low for this application. oversample=4 works well and doesn't take too long (see notebook'Oversample Comparison')
 
 wavelength=632e-9*u.m
-coronagraph='fqpm' # can be 'vortex' or 'fqpm'. See 'Test Responses' notebook for more info.
+coronagraph='vortex' # can be 'vortex' or 'fqpm'. See 'Test Responses' notebook for more info.
 npix_pupil = 512 
 
 npix_detector = 128 #size of output images
@@ -45,6 +49,16 @@ else:
     overall_max_wfe = 0
 
 #------Do not edit below------#
+
+def generate_wfe_array_individual(bounds, NexPerZ):
+     M = highest_coeff-1
+     N = NexPerZ
+     Ntot = N*M
+     wfe_array = np.zeros((M, Ntot))
+     vals = np.linspace(-1*bounds[0],bounds[0],N)
+     for i in range(M):
+          wfe_array[i,i*N:(i+1)*N] = vals
+     return wfe_array
 
 def generate_wfe_array_sparse(bounds,Nex):
     #For each example, choose a single one of the zernikes, choose its value from a uniform distribution, and set the others to zero.
@@ -85,7 +99,9 @@ if __name__ == '__main__':
         wfe_array = generate_wfe_array(bounds,Nex)
     elif zernike_distribution == 'uniform-overall':
         wfe_array = generate_wfe_array_uniform_overall(overall_max_wfe,Nex)
-    
+    elif zernike_distribution == 'individual':
+        wfe_array = generate_wfe_array_individual(bounds,Nex)
+        Nex = Nex*(highest_coeff-1)
     print(wfe_array.shape)
     print(wfe_array[:,:3])
 

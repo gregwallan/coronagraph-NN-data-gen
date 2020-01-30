@@ -84,8 +84,26 @@ class VortexMask(poppy.AnalyticOpticalElement):
         
         y, x = self.get_coordinates(wave)
         angle = np.arctan2(x,y)
-        opd = self.charge*angle/(2*np.pi)*self.central_wavelength.to(u.meter).value
+        opd = self.charge*angle/(2*np.pi)*self.central_wavelength.to(u.meter).value + self.charge*self.central_wavelength.to(u.meter).value/2
         return opd
+'''
+class VortexMaskDot(poppy.AnalyticOpticalElement):
+    def __init__(self, name="unnamed Vortex ", charge=1, wavelength=10.65e-6 * u.meter, **kwargs):
+        self.charge = charge
+        self.central_wavelength = wavelength
+        self._wavefront_display_hint='phase'
+        poppy.AnalyticOpticalElement.__init__(self,name=name,**kwargs)
+    
+    def get_opd(self,wave):
+        if not isinstance(wave, poppy.poppy_core.Wavefront):
+            raise ValueError("get_opd must be called with a Wavefront to define the spacing")
+        assert (wave.planetype == poppy.poppy_core.PlaneType.image)
+        
+        y, x = self.get_coordinates(wave)
+        angle = np.arctan2(x,y)
+        opd = self.charge*angle/(2*np.pi)*self.central_wavelength.to(u.meter).value + self.charge*self.central_wavelength.to(u.meter).value/2
+        return opd        
+'''
 
 def make_coronagraph(wfe_coeffs,npix_pupil=512,npix_detector=128,wavelength=1e-6*u.m,oversample=4,pixelscale=0.01,sensor_defocus=0.5,vortex_charge=2,llowfs=False,mask_type='fqpm',obscuration=False):
     #sensor_defocus: defocus of llowfs detector in waves peak-to-valley
