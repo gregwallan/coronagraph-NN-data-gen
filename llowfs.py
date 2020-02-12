@@ -110,7 +110,7 @@ def make_coronagraph(wfe_coeffs,npix_pupil=512,npix_detector=128,wavelength=1e-6
     
     #these values are picked rather arbitrarily, but seem to work
     aperture_radius = 3*u.m
-    lyot_radius=2.8*u.m
+    lyot_radius=2.6*u.m
     pupil_radius = 3*aperture_radius
 
     
