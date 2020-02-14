@@ -24,7 +24,7 @@ def generate_wfe_array(wfe_bounds,n_samples):
         
     return wfe_array
 
-def simulate_multiple_llowfs(wfe_array,filename,oversample=4,wavelength=632e-9*u.m,coronagraph='vortex',npix_pupil=512,npix_detector=128,vortex_charge=2,pixelscale=0.005,sensor_defocus=0.5,obscuration=False):
+def simulate_multiple_llowfs(wfe_array,filename,oversample=4,wavelength=632e-9*u.m,coronagraph='vortex',npix_pupil=512,npix_detector=128,vortex_charge=2,pixelscale=0.005,sensor_defocus=0.5,obscuration=False,lyot_factor=0.9):
     #input wfe_array should start at tip, not piston
     #sensor_defocus specified in wavelengths
     
@@ -45,7 +45,7 @@ def simulate_multiple_llowfs(wfe_array,filename,oversample=4,wavelength=632e-9*u
         llowfs = make_coronagraph(wfe,wavelength=wavelength,oversample=oversample,pixelscale=pixelscale,\
                                 sensor_defocus=sensor_defocus,llowfs=True,npix_pupil=npix_pupil,\
                                 npix_detector=npix_detector, mask_type=coronagraph,\
-                                vortex_charge=vortex_charge, obscuration=obscuration)
+                                vortex_charge=vortex_charge, obscuration=obscuration, lyot_factor=lyot_factor)
         psf = llowfs.calc_psf(wavelength=wavelength, display_intermediates=False)
         images_dataset[:,:,i] = psf[0].data
     
@@ -105,12 +105,13 @@ class VortexMaskDot(poppy.AnalyticOpticalElement):
         return opd        
 '''
 
-def make_coronagraph(wfe_coeffs,npix_pupil=512,npix_detector=128,wavelength=1e-6*u.m,oversample=4,pixelscale=0.01,sensor_defocus=0.5,vortex_charge=2,llowfs=False,mask_type='fqpm',obscuration=False):
+def make_coronagraph(wfe_coeffs,npix_pupil=512,npix_detector=128,wavelength=1e-6*u.m,oversample=4,pixelscale=0.01,sensor_defocus=0.5,vortex_charge=2,llowfs=False,mask_type='fqpm',obscuration=False,lyot_factor=0.9):
     #sensor_defocus: defocus of llowfs detector in waves peak-to-valley
     
     #these values are picked rather arbitrarily, but seem to work
     aperture_radius = 3*u.m
-    lyot_radius=2.6*u.m
+    #lyot_radius=2.6*u.m
+    lyot_radius=lyot_factor*aperture_radius
     pupil_radius = 3*aperture_radius
 
     
