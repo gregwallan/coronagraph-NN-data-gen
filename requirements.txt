@@ -1,4 +1,5 @@
-poppy==0.8.0
+wheel
+poppy
 ipykernel
 matplotlib
 numpy

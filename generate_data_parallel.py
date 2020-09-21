@@ -10,9 +10,9 @@ import sys
 
 # -- General Parameters -- #
 
-Nex = 800 #number of examples
+Nex = 50000 #number of examples
 
-file_out = 'vortex_15_individual_800st_948nm_128px'
+file_out = 'fqpm_Z15_128px_15rad_gaussian_63nm_'
 if len(sys.argv) > 1:
 	file_out +=  str(sys.argv[1])
 file_out += '.hdf5'
@@ -20,33 +20,27 @@ file_out += '.hdf5'
 processes=8 #number of workers to spawn
 
 # -- Parameters for the zernike generation -- #
+file_in = 'None'
 highest_coeff = 15
-bounds = [632e-9*1.5]*(highest_coeff-1) #a list of M bounds for zernike coeffs starting with piston. Bound on each coefficient can be different if desired.
-zernike_distribution = 'individual' #can be 'uniform', 'sparse', or 'uniform-overall'
+bounds = [63e-9]*(highest_coeff-1) #a list of M bounds for zernike coeffs starting with piston. Bound on each coefficient can be different if desired.
+zernike_distribution = 'gaussian' #can be 'uniform', 'gaussian', 'sparse', 'uniform-overall', 'individual', or 'file'
 overall_max_wfe = 632e-9*1.5;
 # -- Parameters on optical system -- #
-oversample = 4 
+oversample = 4
 # oversample pads the pupil plane before performing ffts. This gives more accurate simulations of image plane interactions. oversample=2 is generally too low for this application. oversample=4 works well and doesn't take too long (see notebook'Oversample Comparison')
 
 wavelength=632e-9*u.m
-coronagraph='vortex' # can be 'vortex' or 'fqpm'. See 'Test Responses' notebook for more info.
-npix_pupil = 512 
+coronagraph='fqpm' # can be 'vortex' or 'fqpm'. See 'Test Responses' notebook for more info.
+npix_pupil = 512
 
 npix_detector = 128 #size of output images
 detector_fov = 0.3 #arcsec
 detector_pixelscale = detector_fov/npix_detector
 
-vortex_charge = 2
-sensor_defocus = 4 #(times wavelength)
+lyot_factor=0.9
+vortex_charge = 4
+sensor_defocus = -15/(2*np.pi) #(times wavelength)
 obscuration = False
-
-#so the metadata is less confusing, but hdf5 doesn't support 'None'
-if coronagraph == 'fqpm':
-    vortex_charge = 0 
-if zernike_distribution == 'uniform-overall':
-    bounds = 0
-else:
-    overall_max_wfe = 0
 
 #------Do not edit below------#
 
@@ -81,18 +75,41 @@ def generate_wfe_array_uniform_overall(overall_bound,Nex):
     desired_wfe = np.random.uniform(high=overall_bound,size=(Nex))
     wfe_array = np.multiply(np.divide(wfe_array,rms_wfe_calc),desired_wfe)
     return wfe_array
+    
+def generate_wfe_array_gaussian(sigmas,Nex):
+    M = highest_coeff-1 #number of zernike coeffs (not including piston)
+    N = Nex; #number of examples to simulate
+    wfe_array = np.zeros((M,N))
+    for ii in range(M):
+        wfe_array[ii,:] = np.random.randn(1,N)*sigmas[ii]
+    return wfe_array
 
 def coronagraph_wrapper(wfe_in):
     llowfs = make_coronagraph(wfe_in,wavelength=wavelength,oversample=oversample,pixelscale=detector_pixelscale,\
                             sensor_defocus=sensor_defocus,llowfs=True,npix_pupil=npix_pupil,\
                             npix_detector=npix_detector, mask_type=coronagraph,\
-                            vortex_charge=vortex_charge, obscuration=obscuration)
+                            vortex_charge=vortex_charge, obscuration=obscuration, lyot_factor=lyot_factor)
     psf = llowfs.calc_psf(wavelength=wavelength, display_intermediates=False)
     return psf
 
 if __name__ == '__main__':
     start_time = time.time()
     
+    #so the metadata is less confusing, but hdf5 doesn't support 'None'
+    if coronagraph == 'fqpm':
+        vortex_charge = 0 
+    if zernike_distribution == 'uniform-overall':
+        bounds = 0
+        file_in = "None"
+    elif zernike_distribution == 'file':
+        bounds = 0
+        overall_max_wfe = 0
+        highest_coeff = 0;
+    else:
+        overall_max_wfe = 0
+        file_in = "None"
+    
+    #generate wfe array
     if zernike_distribution == 'sparse':
         wfe_array = generate_wfe_array_sparse(bounds,Nex)
     elif zernike_distribution == 'uniform':
@@ -102,6 +119,13 @@ if __name__ == '__main__':
     elif zernike_distribution == 'individual':
         wfe_array = generate_wfe_array_individual(bounds,Nex)
         Nex = Nex*(highest_coeff-1)
+    elif zernike_distribution == 'gaussian':
+        wfe_array = generate_wfe_array_gaussian(bounds,Nex)
+    elif zernike_distribution == 'file':
+        wfe_array = np.load(file_in)
+        Nex = wfe_array.shape[1]
+        highest_coeff = wfe_array.shape[0]+1
+
     print(wfe_array.shape)
     print(wfe_array[:,:3])
 
@@ -139,11 +163,13 @@ if __name__ == '__main__':
                 'detector_fov': detector_fov,
                 'pixelscale': detector_pixelscale,
                 'sensor_defocus': sensor_defocus,
+		'lyot_factor': lyot_factor,
                 'obscuration': obscuration,
                 'distribution': zernike_distribution,
                 'bounds': bounds,
                 'examples': N,
-                'zernikes': M
+                'zernikes': M,
+                'wfe_filename':file_in
             }
     hf.attrs.update(metadata)
     hf.close()
